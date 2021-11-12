@@ -32,8 +32,8 @@ debug_logger()
 LOG_FILE = f'{datetime.today()}_logs.txt'
 db = sqlite3.connect('PACS.db' , check_same_thread=False)
 cursor = db.cursor()
-
-cursor.execute('CREATE TABLE IF NOT EXISTS DICOMDATA( ID INTEGER PRIMARY KEY AUTOINCREMENT,PATIENTUID STR UNIQUE NOT NULL,  STUDYINSTANCEUID  STR NOT NULL UNIQUE,FRAMEOFREFERENCEUID STR NOT NULL, PATH STR NOT NULL );')
+#TO GET TIME USE SELECT DATETIME(TIME, 'unixepoch')
+cursor.execute('CREATE TABLE IF NOT EXISTS DICOMDATA( ID INTEGER PRIMARY KEY AUTOINCREMENT,TIME INTEGER, PATIENTUID STR UNIQUE NOT NULL,  STUDYINSTANCEUID  STR NOT NULL UNIQUE,FRAMEOFREFERENCEUID STR NOT NULL, PATH STR NOT NULL );')
 cursor.execute('CREATE TABLE IF NOT EXISTS STUDYTABLE( ID INTEGER PRIMARY KEY AUTOINCREMENT,STUDYINSTANCEUID STR NOT NULL, SERIESINSTANCEUID  STR NOT NULL UNIQUE );')
 cursor.execute('CREATE TABLE IF NOT EXISTS IMAGES( ID INTEGER PRIMARY KEY AUTOINCREMENT, SERIESINSTANCEUID STR NOT NULL,SOPINSTANCEUID STR NOT NULL UNIQUE, FILENAME STR NOT NULL UNIQUE);')
 #db.commit()
@@ -164,8 +164,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
     with open(output,'w') as jsonFile:
       json.dump(nested_dict, jsonFile)
     #create a copy of json in another folder for easy query  
-    os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
-    json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
+    os.makedirs('/home/ubuntu/JSON', exist_ok=True)
+    json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
     with open(json_copy,'w') as jsonFileCopy:
       json.dump(nested_dict, jsonFileCopy)
     logging.info('[SUCCESS] Finished saving json file')
@@ -177,7 +177,7 @@ def write_to_db(pid, studyid, seriesid,sopid,frameid,path, fname):
     global cursor
     global db
     logging.info('[SUCCESS] Connected to db' )
-    cursor.execute(f'INSERT OR IGNORE INTO DICOMDATA (PATIENTUID,STUDYINSTANCEUID,FRAMEOFREFERENCEUID, PATH) VALUES ("{str(pid)}", "{str(studyid)}", "{str(frameid)}", "{str(path)}")')
+    cursor.execute(f'INSERT OR IGNORE INTO DICOMDATA (TIME, PATIENTUID,STUDYINSTANCEUID,FRAMEOFREFERENCEUID, PATH) VALUES (strftime("%s","now"), "{str(pid)}", "{str(studyid)}", "{str(frameid)}", "{str(path)}")')
     cursor.execute(f'INSERT OR IGNORE INTO STUDYTABLE( STUDYINSTANCEUID, SERIESINSTANCEUID) VALUES ("{studyid}", "{seriesid}")')
     cursor.execute(f'INSERT OR IGNORE INTO IMAGES( SERIESINSTANCEUID, SOPINSTANCEUID ,FILENAME) VALUES ("{seriesid}", "{sopid}", "{fname}")' )
     db.commit()
@@ -198,7 +198,7 @@ def handle_store(event, storage_dir):
     logging.info(f'[CONNECTION REQUEST]{datetime.now().strftime("%d/%m/%Y %H:%M:%S")} PatientUID:{pid} StudyUID:{studyid}    Begin Saving file for {event.file_meta}')
     # frameid = event.dataset.FrameOfReferenceUID
     frameid = event.dataset.Manufacturer
-    storage_path = '/home/arppit/Music/storage/'
+    storage_path = '/home/ubuntu/storage/'
     folder_name = storage_path+pid
     os.makedirs(folder_name, exist_ok=True)
     study_folder = folder_name + '/' + studyid
