@@ -29,7 +29,7 @@ from pynetdicom import (
 )
 
 debug_logger()
-LOG_FILE = f'home/ubuntu/{datetime.today()}_logs.txt'
+LOG_FILE = os.path.join('/home/ubuntu/LOGS/', f'{datetime.today()}_logs.txt')
 db = sqlite3.connect('PACS.db' , check_same_thread=False)
 cursor = db.cursor()
 #TO GET TIME USE SELECT DATETIME(TIME, 'unixepoch')
@@ -168,8 +168,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   with open(output,'w') as jsonFile:
     json.dump(nested_dict, jsonFile)
   #create a copy of json in another folder for easy query  
-  os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
-  json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
+  os.makedirs('/home/ubuntu/JSON', exist_ok=True)
+  json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
   with open(json_copy,'w') as jsonFileCopy:
     json.dump(nested_dict, jsonFileCopy)
   logging.info('[SUCCESS] Finished saving json file')
@@ -205,6 +205,7 @@ def handle_store(event, storage_dir):
     os.makedirs(folder_name, exist_ok=True)
     study_folder = folder_name + '/' + studyid
     os.makedirs(study_folder,exist_ok=True)
+    
     if event.dataset.Modality =='SR':
   
         storage_dir = study_folder + '/SR' 
@@ -225,6 +226,9 @@ def handle_store(event, storage_dir):
               os.makedirs(storage_dir, exist_ok=True)
               fname = os.path.join(storage_dir+'/', event.request.AffectedSOPInstanceUID)
         except:
+              storage_dir = study_folder+ '/CT' # image-series data
+              os.makedirs(storage_dir, exist_ok=True)
+              fname = os.path.join(storage_dir+'/', event.request.AffectedSOPInstanceUID)
               logging.error('Maybe Dataset is corrupted or not part of SR CT or thumbnails')
                 
 
