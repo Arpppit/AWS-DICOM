@@ -29,7 +29,7 @@ from pynetdicom import (
 )
 
 debug_logger()
-LOG_FILE = f'{datetime.today()}_logs.txt'
+LOG_FILE = f'home/ubuntu/{datetime.today()}_logs.txt'
 db = sqlite3.connect('PACS.db' , check_same_thread=False)
 cursor = db.cursor()
 #TO GET TIME USE SELECT DATETIME(TIME, 'unixepoch')
@@ -42,40 +42,41 @@ cursor.execute('CREATE TABLE IF NOT EXISTS IMAGES( ID INTEGER PRIMARY KEY AUTOIN
 
 
 def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thickness_fr_of_ref_folder, olay_folder): 
-  
+   
+  # try:
+  start_key=0 
+  nested_dict={}
+  logging.info(f'[START] Begin SR to JSON conversion')
+  dict1={}
+  ds = input
+  #ds=  pydicom.dataset.Dataset.from_json(json.load(open(input)))
+  dds=ds.to_json_dict() 
+  #dict1['Frame of reference UID']=dds['0040A730']['Value'][3]['0040A730']['Value'][0]['0040A730']['Value'][3]['30060024']['Value'][0]
+  dict1[ds[0x0008,0x0016].name]=ds[0x0008,0x0016].value
+  dict1[ds[0x0008,0x0020].name]=ds[0x0008,0x0020].value
+  dict1[ds[0x0008,0x0070].name]=ds[0x0008,0x0070].value
+  dict1[ds[0x0008,0x103e].name]=ds[0x0008,0x103e].value
+  dict1[ds[0x0008,0x1090].name]=ds[0x0008,0x1090].value
+  dict1[ds[0x0010,0x0010].name]=str(ds[0x0010,0x0010].value)
+  dict1[ds[0x0010,0x0020].name]=ds[0x0010,0x0020].value
+  dict1[ds[0x0010,0x0030].name]=ds[0x0010,0x0030].value
+  dict1[ds[0x0010,0x0040].name]=ds[0x0010,0x0040].value
   try:
-    start_key=0 
-    nested_dict={}
-    logging.info(f'[START] Begin SR to JSON conversion')
-    dict1={}
-    ds = input
-    #ds=  pydicom.dataset.Dataset.from_json(json.load(open(input)))
-    dds=ds.to_json_dict() 
-    #dict1['Frame of reference UID']=dds['0040A730']['Value'][3]['0040A730']['Value'][0]['0040A730']['Value'][3]['30060024']['Value'][0]
-    dict1[ds[0x0008,0x0016].name]=ds[0x0008,0x0016].value
-    dict1[ds[0x0008,0x0020].name]=ds[0x0008,0x0020].value
-    dict1[ds[0x0008,0x0070].name]=ds[0x0008,0x0070].value
-    dict1[ds[0x0008,0x103e].name]=ds[0x0008,0x103e].value
-    dict1[ds[0x0008,0x1090].name]=ds[0x0008,0x1090].value
-    dict1[ds[0x0010,0x0010].name]=str(ds[0x0010,0x0010].value)
-    dict1[ds[0x0010,0x0020].name]=ds[0x0010,0x0020].value
-    dict1[ds[0x0010,0x0030].name]=ds[0x0010,0x0030].value
-    dict1[ds[0x0010,0x0040].name]=ds[0x0010,0x0040].value
-    
-    # select any CT image for reference
+  # select any CT image for reference
     reference_file = os.listdir(thickness_fr_of_ref_folder)
     fpath=str(thickness_fr_of_ref_folder)+'/'+str(reference_file[0])
     dss=pydicom.dcmread(fpath)
-    
+
 
     dict1[dss[0x0018,0x0050].name]=dss[0x0018,0x0050].value
     dict1[dss[0x0020,0x0052].name]=dss[0x0020,0x0052].value
-    
+
     for i in range(len(dds['0040A730']['Value'])):
       if (dds['0040A730']['Value'][i]['0040A043']['Value'][0]['00080104']['Value'][0]!='Image Measurements'):
         start_key+=1
-
- 
+    print('#'*100)
+    print(dict1)
+    print('#'*100)
     thumbnail_files = os.listdir(dataset_folder)
     # if no corresponding thumbnail files are present just work with what we have 
     if len(thumbnail_files) < len(dds['0040A730']['Value'][start_key]['0040A730']['Value']):
@@ -84,10 +85,10 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
       if len(thumbnail_files)!=0:
         thumbnail_files+=[thumbnail_files[0]]*rem
     for i in range(len(dds['0040A730']['Value'][start_key]['0040A730']['Value'])):
-   
+
       input1 = dataset_folder+'/'+ thumbnail_files[i]
       dss1=pydicom.dcmread(input1)
-     
+      
       k=0
       dict={}
       #GET required values 
@@ -114,19 +115,19 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
 
         elif attr== 'Lesion Epicenter':
           dict[attr]=str(subdict['00700022']['Value'])
-         
+          
 
         elif attr== 'Attenuation Characteristic' or attr=='Radiographic Lesion Margin' or attr=='Lung-RADS assessment' or attr=='Finding' or attr=='Finding site':
           dict[attr]=str(subdict['0040A168']['Value'][0]['00080104']['Value'][0])
           if radlex:
             dict[attr]+=' ('+subdict['0040A043']['Value'][0]['00080100']['Value'][0]+','+subdict['0040A043']['Value'][0]['00080102']['Value'][0]+')'  
-    
+
       if i==0:
         nested_dict['patient_study_details']=dict1 
         nested_dict['nodules']=[]  
       
       dict[dss1[0x0018,0x0060].name]=dss1[0x0018,0x0060].value
-     
+      
 
       for element in dss1:
         if element.name=='Pixel Data':
@@ -147,30 +148,31 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
           fpath=str(olay_folder)+"/CT_%2d" %i+".jpg"
           matplotlib.image.imsave(fpath,new,cmap=cm.gray)
           logging.info('[SUCCESS] saving generated image successfull')
-          
-          
-      with open(fpath,'rb') as img1:
+ 
+         
+    with open(fpath,'rb') as img1:
 
-        f=img1.read()
-        
-        imagedata1 = { "mimeType": "image/jpg",
-                  "content": " ",
-                  "fileName": "CT_key_image.jpg"
-                  }
-        imagedata1["content"]=base64.b64encode((f)).decode("utf-8")
-      dict['CT details']=imagedata1
-      nested_dict['nodules'].append(dict)
-    filename_json = output.split('/')[-1] 
-    with open(output,'w') as jsonFile:
-      json.dump(nested_dict, jsonFile)
-    #create a copy of json in another folder for easy query  
-    os.makedirs('/home/ubuntu/JSON', exist_ok=True)
-    json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
-    with open(json_copy,'w') as jsonFileCopy:
-      json.dump(nested_dict, jsonFileCopy)
-    logging.info('[SUCCESS] Finished saving json file')
+      f=img1.read()
+      
+      imagedata1 = { "mimeType": "image/jpg",
+                "content": " ",
+                "fileName": "CT_key_image.jpg"
+                }
+      imagedata1["content"]=base64.b64encode((f)).decode("utf-8")
+    dict['CT details']=imagedata1
+    nested_dict['nodules'].append(dict)
   except:
-    logging.error(f'[ERROR] in generating JSON for SR {input.PatientID} --> {input.StudyInstanceUID}')
+    logging.error('[ERROR] Required images not present at moment')
+    nested_dict['patient_study_details']= dict1
+  filename_json = output.split('/')[-1] 
+  with open(output,'w') as jsonFile:
+    json.dump(nested_dict, jsonFile)
+  #create a copy of json in another folder for easy query  
+  os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
+  json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
+  with open(json_copy,'w') as jsonFileCopy:
+    json.dump(nested_dict, jsonFileCopy)
+  logging.info('[SUCCESS] Finished saving json file')
 
 
 def write_to_db(pid, studyid, seriesid,sopid,frameid,path, fname):
@@ -194,7 +196,7 @@ def handle_store(event, storage_dir):
     studyid = event.dataset.StudyInstanceUID
     seriesid = event.dataset.SeriesInstanceUID
     sopid = event.dataset.SOPInstanceUID
-    logging.basicConfig(filename=LOG_FILE, encoding='utf-8', level=logging.INFO)
+    logging.basicConfig(filename=LOG_FILE, level=logging.INFO)
     logging.info(f'[CONNECTION REQUEST]{datetime.now().strftime("%d/%m/%Y %H:%M:%S")} PatientUID:{pid} StudyUID:{studyid}    Begin Saving file for {event.file_meta}')
     # frameid = event.dataset.FrameOfReferenceUID
     frameid = event.dataset.Manufacturer
@@ -204,22 +206,27 @@ def handle_store(event, storage_dir):
     study_folder = folder_name + '/' + studyid
     os.makedirs(study_folder,exist_ok=True)
     if event.dataset.Modality =='SR':
+  
         storage_dir = study_folder + '/SR' 
         os.makedirs(storage_dir, exist_ok=True)
         fname = os.path.join(storage_dir+'/', event.request.AffectedSOPInstanceUID)
     else:
         try:
             if event.dataset.SeriesDescription =='AI-Rad Companion Pulmonary Lesion Thumbnails':
+              
               storage_dir = study_folder+ '/Thumbnails' # image-series data
               thumb_f = storage_dir
   
               os.makedirs(storage_dir, exist_ok=True)
            
               fname = os.path.join(storage_dir+'/', event.request.AffectedSOPInstanceUID)
-        except:
+            else:
               storage_dir = study_folder+ '/CT' # image-series data
               os.makedirs(storage_dir, exist_ok=True)
               fname = os.path.join(storage_dir+'/', event.request.AffectedSOPInstanceUID)
+        except:
+              logging.error('Maybe Dataset is corrupted or not part of SR CT or thumbnails')
+                
 
     # We rely on the UID from the C-STORE request instead of decoding
     logging.info('[START] writing to database')
@@ -241,7 +248,7 @@ def main():
     handlers = [(evt.EVT_C_STORE, handle_store, ['out'])]
 
     ae = AE()
-    ae.ae_title = b'VAPALS_ELCAP_DICOM'
+    ae.ae_title = b'SPLUS'
     #ae.requested_contexts = StoragePresentationContexts
     storage_sop_classes = [
         cx.abstract_syntax for cx in AllStoragePresentationContexts
