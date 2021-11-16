@@ -31,14 +31,17 @@ from pynetdicom import (
 
 debug_logger()
 os.makedirs('/home/ubuntu/LOGS',exist_ok=True)
+# os.makedirs('/home/arppit/Music/LOGS',exist_ok=True)
 LOG_FILE = os.path.join('/home/ubuntu/LOGS',  f'{datetime.today()}_logs.txt')
+#LOG_FILE = os.path.join('/home/arppit/Music/LOGS',f'{datetime.today()}_logs.txt')
 db = sqlite3.connect('pacs.db' , check_same_thread=False)
 cursor = db.cursor()
 
-cursor.execute('CREATE TABLE IF NOT EXISTS DICOMDATA( ID INTEGER PRIMARY KEY AUTOINCREMENT,TIME INTEGER, PATIENTUID STR UNIQUE NOT NULL,  STUDYINSTANCEUID  STR NOT NULL UNIQUE,FRAMEOFREFERENCEUID STR NOT NULL, PATH STR NOT NULL );')
+cursor.execute('CREATE TABLE IF NOT EXISTS DICOMDATA( ID INTEGER PRIMARY KEY AUTOINCREMENT,TIME INTEGER, PATIENTUID STR UNIQUE NOT NULL,  STUDYINSTANCEUID  STR NOT NULL UNIQUE,MANUFACTURER STR NOT NULL, PATH STR NOT NULL );')
 cursor.execute('CREATE TABLE IF NOT EXISTS STUDYTABLE( ID INTEGER PRIMARY KEY AUTOINCREMENT,STUDYINSTANCEUID STR NOT NULL, SERIESINSTANCEUID  STR NOT NULL UNIQUE );')
 cursor.execute('CREATE TABLE IF NOT EXISTS IMAGES( ID INTEGER PRIMARY KEY AUTOINCREMENT, SERIESINSTANCEUID STR NOT NULL,SOPINSTANCEUID STR NOT NULL UNIQUE, FILENAME STR NOT NULL UNIQUE);')
-cursor.execute('CREATE TABLE IF NOT EXISTS SR( ID INTEGER PRIMARY KEY AUTOINCREMENT,SOPINSTANCEUID STR NOT NULL UNIQUE, PATH STR NOT NULL UNIQUE, SENT BOOLEAN );')
+cursor.execute('CREATE TABLE IF NOT EXISTS JOBS( ID INTEGER PRIMARY KEY AUTOINCREMENT,SOPINSTANCEUID STR NOT NULL UNIQUE, PATH STR NOT NULL UNIQUE, SENT BOOLEAN );')
+cursor.execute('CREATE TABLE IF NOT EXISTS SR( ID INTEGER PRIMARY KEY AUTOINCREMENT,SOPINSTANCEUID STR NOT NULL UNIQUE, PATH STR NOT NULL UNIQUE, PID STR NOT NULL);')
 #db.commit()
 
 
@@ -51,17 +54,18 @@ def write_to_db(pid, studyid, seriesid,sopid,frameid,path, fname):
     global db
     logging.info('[SUCCESS] Connected to db' )
     #TO GET TIME USE SELECT DATETIME(TIME, 'unixepoch')
-    cursor.execute(f'INSERT OR IGNORE INTO DICOMDATA (TIME, PATIENTUID,STUDYINSTANCEUID,FRAMEOFREFERENCEUID, PATH) VALUES (strftime("%s","now"), "{str(pid)}", "{str(studyid)}", "{str(frameid)}", "{str(path)}")')
+    cursor.execute(f'INSERT OR IGNORE INTO DICOMDATA (TIME, PATIENTUID,STUDYINSTANCEUID,MANUFACTURER, PATH) VALUES (strftime("%s","now"), "{str(pid)}", "{str(studyid)}", "{str(frameid)}", "{str(path)}")')
     cursor.execute(f'INSERT OR IGNORE INTO STUDYTABLE( STUDYINSTANCEUID, SERIESINSTANCEUID) VALUES ("{studyid}", "{seriesid}")')
     cursor.execute(f'INSERT OR IGNORE INTO IMAGES( SERIESINSTANCEUID, SOPINSTANCEUID ,FILENAME) VALUES ("{seriesid}", "{sopid}", "{fname}")' )
     db.commit()
     logging.info('[FINISHED] Saved values in Database ')
     #cursor.close()
 
-def schedule(path,sopid):
+def schedule(path,sopid,pid):
   global cursor
   global db
-  cursor.execute(f'INSERT OR IGNORE INTO SR(SOPINSTANCEUID, PATH, SENT) VALUES ("{sopid}", "{path}", {False})')
+  cursor.execute(f'INSERT OR IGNORE INTO JOBS(SOPINSTANCEUID, PATH, SENT) VALUES ("{sopid}", "{path}", {False})')
+  cursor.execute(f'INSERT OR IGNORE INTO SR(SOPINSTANCEUID, PATH,PID) VALUES ("{sopid}", "{path}", "{pid}")')
   db.commit()
 
 
@@ -77,6 +81,7 @@ def handle_store(event, storage_dir):
     # frameid = event.dataset.FrameOfReferenceUID
     frameid = event.dataset.Manufacturer
     storage_path = '/home/ubuntu/storage/'
+    # storage_path = '/home/arppit/Music/storage/'
     folder_name = storage_path+pid
     os.makedirs(folder_name, exist_ok=True)
     study_folder = folder_name + '/' + studyid
@@ -120,9 +125,9 @@ def handle_store(event, storage_dir):
         f.write(event.request.DataSet.getvalue())
     logging.info(f'[SUCCESS] File saved in {storage_dir}')
     if event.dataset.Modality =='SR':
-      schedule(study_folder,sopid)
+      schedule(study_folder,sopid, pid)
     #   ExtractNodulesFromJson(event.dataset,fname+'.json',True,study_folder+'/Thumbnails',study_folder+'/CT', study_folder)
-    write_to_db(str(pid),str(studyid), str(seriesid) ,str(sopid) ,str(frameid) ,str(storage_dir) ,str(fname))
+    write_to_db(str(pid),str(studyid), str(seriesid) ,str(sopid) ,str(frameid) ,str(storage_dir) ,str(study_folder))
     logging.info(f'[FINISHED] {pid} + {studyid} + {sopid} File recieved and exiting the process ')
     return 0x0000
 

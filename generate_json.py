@@ -155,7 +155,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
             dict[f'CT details_{i}']=imagedata1
             nested_dict['nodules'].append(dict)
   except:
-    logging.error('[ERROR] Required images not present at moment')
+    #logging.error('[ERROR] Required images not present at moment')
     nested_dict['patient_study_details']= dict1
     flag =0
   filename_json = output.split('/')[-1] 
@@ -164,6 +164,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   #create a copy of json in another folder for easy query  
   os.makedirs('/home/ubuntu/JSON', exist_ok=True)
   json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
+  # os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
+  # json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
   with open(json_copy,'w') as jsonFileCopy:
     json.dump(nested_dict, jsonFileCopy)
   logging.info('[SUCCESS] Finished saving json file')
@@ -180,7 +182,7 @@ def job_scheduler():
     global cursor
     global db
     global c
-    li =[i for i in cursor.execute('select * from  SR')]
+    li =[i for i in cursor.execute('select * from  JOBS')]
     #print(li)
     sent = [False]* len(li)
 
@@ -199,10 +201,10 @@ def job_scheduler():
                 with open(input, 'rb') as f:
                     r = requests.post('http://demo.va-pals.org/dcmin?siteid=PHO&returngraph=1', files={f'{input}': f})
                 #print(r)
-                cursor.execute(f'UPDATE SR SET SENT = {True} where ID = "{i[0]}"')
+                cursor.execute(f'UPDATE JOBS SET SENT = {True} where ID = "{i[0]}"')
                 db.commit()
               if flag:
-                  cursor.execute(f'DELETE FROM SR WHERE id = {i[0]}')
+                  cursor.execute(f'DELETE FROM JOBS WHERE id = {i[0]}')
                   #print(f'deleted {i[0]}')
                   with open(input, 'rb') as f:
                     r = requests.post('http://demo.va-pals.org/dcmin?siteid=PHO&returngraph=1', files={f'{input}': f})
