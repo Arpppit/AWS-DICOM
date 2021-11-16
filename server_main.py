@@ -76,7 +76,7 @@ def handle_store(event, storage_dir):
     studyid = event.dataset.StudyInstanceUID
     seriesid = event.dataset.SeriesInstanceUID
     sopid = event.dataset.SOPInstanceUID
-    logging.basicConfig(filename=LOG_FILE, encoding='utf-8', level=logging.INFO)
+    logging.basicConfig(filename=LOG_FILE,  level=logging.INFO)
     logging.info(f'[CONNECTION REQUEST]{datetime.now().strftime("%d/%m/%Y %H:%M:%S")} PatientUID:{pid} StudyUID:{studyid}    Begin Saving file for {event.file_meta}')
     # frameid = event.dataset.FrameOfReferenceUID
     frameid = event.dataset.Manufacturer
