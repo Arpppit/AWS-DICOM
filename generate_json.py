@@ -34,10 +34,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   start_key=0 
   nested_dict={}
   logging.info(f'[START] Begin SR to JSON conversion')
-  reader = sitk.ImageSeriesReader()
-  dicom_names = reader.GetGDCMSeriesFileNames(thickness_fr_of_ref_folder)
-  reader.SetFileNames(dicom_names)
-  nii_image = reader.Execute()
+  
   dict1={}
   ds = input
   #ds=  pydicom.dataset.Dataset.from_json(json.load(open(input)))
@@ -55,11 +52,15 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   dict1[ds[0x0010,0x0040].name]=ds[0x0010,0x0040].value
   flag =1
   try:
+    
   # select any CT image for reference
     reference_file = os.listdir(thickness_fr_of_ref_folder)
     fpath=str(thickness_fr_of_ref_folder)+'/'+str(reference_file[0])
     dss=pydicom.dcmread(fpath)
-
+    reader = sitk.ImageSeriesReader()
+    dicom_names = reader.GetGDCMSeriesFileNames(thickness_fr_of_ref_folder)
+    reader.SetFileNames(dicom_names)
+    nii_image = reader.Execute()
 
     dict1[dss[0x0018,0x0050].name]=dss[0x0018,0x0050].value
     dict1[dss[0x0020,0x0052].name]=dss[0x0020,0x0052].value
@@ -208,7 +209,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
     nested_dict['nodules'].append(dict)
 
   except Exception as e:
-    traceback.print_exc()
+    #traceback.print_exc()
     #logging.error('[ERROR] Required images not present at moment')
     nested_dict['patient_study_details']= dict1
     flag =0
@@ -216,14 +217,15 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   with open(output,'w') as jsonFile:
     json.dump(nested_dict, jsonFile)
   #create a copy of json in another folder for easy query  
-  os.makedirs('/home/ubuntu/JSON', exist_ok=True)
-  json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
-  # os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
-  # json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
+  # os.makedirs('/home/ubuntu/JSON', exist_ok=True)
+  # json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
+  os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
+  json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
   with open(json_copy,'w') as jsonFileCopy:
     json.dump(nested_dict, jsonFileCopy)
   logging.info('[SUCCESS] Finished saving json file')
   if flag:
+      logging.info('[SUCCESS] JSON is generated with thumnails for :', dict1[ds[0x0008,0x0016].name])
       return 1
   return 0
 
@@ -237,7 +239,7 @@ def job_scheduler():
     global db
     global c
     li =[i for i in cursor.execute('select * from  JOBS')]
-    print(li)
+    #print(li)
     sent = [False]* len(li)
 
     if len(li)!=0:
@@ -259,6 +261,7 @@ def job_scheduler():
                 db.commit()
               if flag:
                   cursor.execute(f'DELETE FROM JOBS WHERE id = {i[0]}')
+                  logging.error('[ERROR] Images not available at moment, Basic JSON is generated')
                   #print(f'deleted {i[0]}')
                   with open(input, 'rb') as f:
                     r = requests.post('http://demo.va-pals.org/dcmin?siteid=PHO&returngraph=1', files={f'{input}': f})
