@@ -30,10 +30,10 @@ from pynetdicom import (
 )
 
 debug_logger()
-os.makedirs('/home/ubuntu/LOGS',exist_ok=True)
-# os.makedirs('/home/arppit/Music/LOGS',exist_ok=True)
-LOG_FILE = os.path.join('/home/ubuntu/LOGS',  f'{datetime.today()}_logs.txt')
-#LOG_FILE = os.path.join('/home/arppit/Music/LOGS',f'{datetime.today()}_logs.txt')
+#os.makedirs('/home/ubuntu/LOGS',exist_ok=True)
+os.makedirs('/home/arppit/Music/LOGS',exist_ok=True)
+#LOG_FILE = os.path.join('/home/ubuntu/LOGS',  f'{datetime.today()}_logs.txt')
+LOG_FILE = os.path.join('/home/arppit/Music/LOGS',f'{datetime.today()}_logs.txt')
 db = sqlite3.connect('pacs.db' , check_same_thread=False)
 cursor = db.cursor()
 
@@ -80,8 +80,8 @@ def handle_store(event, storage_dir):
     logging.info(f'[CONNECTION REQUEST]{datetime.now().strftime("%d/%m/%Y %H:%M:%S")} PatientUID:{pid} StudyUID:{studyid}    Begin Saving file for {event.file_meta}')
     # frameid = event.dataset.FrameOfReferenceUID
     frameid = event.dataset.Manufacturer
-    storage_path = '/home/ubuntu/storage/'
-    # storage_path = '/home/arppit/Music/storage/'
+    #storage_path = '/home/ubuntu/storage/'
+    storage_path = '/home/arppit/Music/storage/'
     folder_name = storage_path+pid
     os.makedirs(folder_name, exist_ok=True)
     study_folder = folder_name + '/' + studyid
