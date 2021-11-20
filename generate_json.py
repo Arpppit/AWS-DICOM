@@ -217,10 +217,10 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   with open(output,'w') as jsonFile:
     json.dump(nested_dict, jsonFile)
   #create a copy of json in another folder for easy query  
-  # os.makedirs('/home/ubuntu/JSON', exist_ok=True)
-  # json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
-  os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
-  json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
+  os.makedirs('/home/ubuntu/JSON', exist_ok=True)
+  json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
+  #os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
+  #json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
   with open(json_copy,'w') as jsonFileCopy:
     json.dump(nested_dict, jsonFileCopy)
   logging.info('[SUCCESS] Finished saving json file')
