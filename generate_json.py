@@ -19,7 +19,9 @@ import json
 import time
 from datetime import datetime 
 import logging
+import glob
 import requests
+import dicom2nifti
 import SimpleITK as sitk
 from PIL import Image, ImageDraw
 from pydicom.filewriter import write_file_meta_info
@@ -33,11 +35,12 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   # try:
   start_key=0 
   nested_dict={}
-  logging.info(f'[START] Begin SR to JSON conversion')
-  
   dict1={}
-  ds = input
+  #need all ct slices to convert to json
+  
+  #json file of SR is read into 
   #ds=  pydicom.dataset.Dataset.from_json(json.load(open(input)))
+  ds = input
   dds=ds.to_json_dict() 
   #dict1['Frame of reference UID']=dds['0040A730']['Value'][3]['0040A730']['Value'][0]['0040A730']['Value'][3]['30060024']['Value'][0]
   dict1[ds[0x0008,0x0016].name]=ds[0x0008,0x0016].value
@@ -57,10 +60,15 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
     reference_file = os.listdir(thickness_fr_of_ref_folder)
     fpath=str(thickness_fr_of_ref_folder)+'/'+str(reference_file[0])
     dss=pydicom.dcmread(fpath)
-    reader = sitk.ImageSeriesReader()
-    dicom_names = reader.GetGDCMSeriesFileNames(thickness_fr_of_ref_folder)
-    reader.SetFileNames(dicom_names)
-    nii_image = reader.Execute()
+    #print('reading ...')
+    dicom2nifti.convert_directory(thickness_fr_of_ref_folder, thickness_fr_of_ref_folder, compression=True, reorient=True)
+    fil=glob.glob(thickness_fr_of_ref_folder+'/'+'*.nii.gz')
+    nii_image=sitk.ReadImage(fil)
+    #print('done reading')
+    #reader = sitk.ImageSeriesReader()
+    #dicom_names = reader.GetGDCMSeriesFileNames(thickness_fr_of_ref_folder)
+    #reader.SetFileNames(dicom_names)
+    #nii_image = reader.Execute()
 
     dict1[dss[0x0018,0x0050].name]=dss[0x0018,0x0050].value
     dict1[dss[0x0020,0x0052].name]=dss[0x0020,0x0052].value
@@ -82,6 +90,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
       
       k=0
       dict={}
+      #temp = []
       #GET required values 
       for j in range(len(dds['0040A730']['Value'][start_key]['0040A730']['Value'][i]['0040A730']['Value'])):
         subdict=dds['0040A730']['Value'][start_key]['0040A730']['Value'][i]['0040A730']['Value'][j]
@@ -105,14 +114,18 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
             dict[attr]+=' ('+subdict['0040A043']['Value'][0]['00080100']['Value'][0]+','+subdict['0040A043']['Value'][0]['00080102']['Value'][0]+')'       
 
         elif attr== 'Lesion Epicenter':
+          print('jjasd')
           dict[attr]=str(subdict['00700022']['Value'])
           les_center=subdict['00700022']['Value']
+          print('lsc',les_center)
           
-
+	
         elif attr== 'Attenuation Characteristic' or attr=='Radiographic Lesion Margin' or attr=='Lung-RADS assessment' or attr=='Finding' or attr=='Finding site':
           dict[attr]=str(subdict['0040A168']['Value'][0]['00080104']['Value'][0])
           if radlex:
             dict[attr]+=' ('+subdict['0040A043']['Value'][0]['00080100']['Value'][0]+','+subdict['0040A043']['Value'][0]['00080102']['Value'][0]+')'  
+        #temp.append(attr)
+      #print('attrs',set(temp))
       for j in range(4):
         gg=dds['0040A730']['Value'][start_key]['0040A730']['Value'][i]['0040A730']['Value'][2]['0040A730']['Value'][j]['0040A043']['Value'][0]['00080104']['Value'][0]
         pp=dds['0040A730']['Value'][start_key]['0040A730']['Value'][i]['0040A730']['Value'][2]['0040A730']['Value'][j]['0040A168']['Value'][0]['00080104']['Value'][0]
@@ -127,8 +140,12 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
       
       dict[dss1[0x0018,0x0060].name]=dss1[0x0018,0x0060].value
       dict[dss1[0x0018,0x1210].name]=dss1[0x0018,0x1210].value
+      print('tt',nii_image.GetOrigin()[2])
+      print('gg',nii_image.GetSpacing()[2])
       sl_num=np.floor((les_center[2]-nii_image.GetOrigin()[2])/nii_image.GetSpacing()[2])
+      print('sl1', sl_num)
       sl_num=sitk.GetArrayFromImage(nii_image).shape[0]-sl_num
+      print('sl2', sl_num)
       dict['slice number of lesion epicenter']=abs(int(sl_num))
       half_num_of_nodule_slices=float(dict['Maximum 2D diameter'])/(2*nii_image.GetSpacing()[2])
       dict['nodule starting slice number']=int(float(dict['slice number of lesion epicenter'])-half_num_of_nodule_slices)
@@ -213,8 +230,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
     nested_dict['nodules'].append(dict)
 
   except Exception as e:
-    #traceback.print_exc()
-    #logging.error('[ERROR] Required images not present at moment')
+    traceback.print_exc()
+    logging.error('[ERROR] Required images not present at moment')
     nested_dict['patient_study_details']= dict1
     flag =0
   filename_json = output.split('/')[-1] 
@@ -223,8 +240,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   #create a copy of json in another folder for easy query  
   os.makedirs('/home/ubuntu/JSON', exist_ok=True)
   json_copy= '/home/ubuntu/JSON'+'/' + f'{filename_json}'
-  #os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
-  #json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
+  # os.makedirs('/home/arppit/Music/JSON', exist_ok=True)
+  # json_copy= '/home/arppit/Music/JSON'+'/' + f'{filename_json}'
   with open(json_copy,'w') as jsonFileCopy:
     json.dump(nested_dict, jsonFileCopy)
   logging.info('[SUCCESS] Finished saving json file')
@@ -265,7 +282,7 @@ def job_scheduler():
                 db.commit()
               if flag:
                   cursor.execute(f'DELETE FROM JOBS WHERE id = {i[0]}')
-                  logging.error('[ERROR] Images not available at moment, Basic JSON is generated')
+                  #logging.error('[ERROR] Images not available at moment, Basic JSON is generated')
                   #print(f'deleted {i[0]}')
                   with open(input, 'rb') as f:
                     r = requests.post('http://demo.va-pals.org/dcmin?siteid=PHO&returngraph=1', files={f'{input}': f})
@@ -275,8 +292,8 @@ def job_scheduler():
     
 def main():
     print('server started')
-    while(100):
-        time.sleep(5)
+    while(1):
+        time.sleep(3)
         job_scheduler()
 
 if __name__ == '__main__':
