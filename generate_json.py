@@ -130,6 +130,10 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
       sl_num=np.floor((les_center[2]-nii_image.GetOrigin()[2])/nii_image.GetSpacing()[2])
       sl_num=sitk.GetArrayFromImage(nii_image).shape[0]-sl_num
       dict['slice number of lesion epicenter']=abs(int(sl_num))
+      half_num_of_nodule_slices=float(dict['Maximum 2D diameter'])/(2*nii_image.GetSpacing()[2])
+      dict['nodule starting slice number']=int(float(dict['slice number of lesion epicenter'])-half_num_of_nodule_slices)
+      dict['nodule ending slice number']=int(float(dict['slice number of lesion epicenter'])+half_num_of_nodule_slices)
+      
       olay_count=0
       l = [i for i in dss1]
       for i in l:
