@@ -37,7 +37,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   nested_dict={}
   dict1={}
   #need all ct slices to convert to json
-  
+  print(dataset_folder,thickness_fr_of_ref_folder,olay_folder,output)
+  nii_dir = '/'.join(dataset_folder.split('/')[:-1])
   #json file of SR is read into 
   #ds=  pydicom.dataset.Dataset.from_json(json.load(open(input)))
   ds = input
@@ -61,9 +62,12 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
     fpath=str(thickness_fr_of_ref_folder)+'/'+str(reference_file[0])
     dss=pydicom.dcmread(fpath)
     #print('reading ...')
-    dicom2nifti.convert_directory(thickness_fr_of_ref_folder, thickness_fr_of_ref_folder, compression=True, reorient=True)
-    fil=glob.glob(thickness_fr_of_ref_folder+'/'+'*.nii.gz')
-    nii_image=sitk.ReadImage(fil)
+    dicom2nifti.convert_directory(thickness_fr_of_ref_folder, nii_dir, compression=True, reorient=True)
+    fil=glob.glob(nii_dir+'/'+'*.nii.gz')
+  
+    #print(os.path.isfile(fil))
+    print('fil',fil, 'args',nii_dir+'/'+'*.nii.gz', os.path.isfile(fil[0]))
+    nii_image=sitk.ReadImage(fil[0])
     #print('done reading')
     #reader = sitk.ImageSeriesReader()
     #dicom_names = reader.GetGDCMSeriesFileNames(thickness_fr_of_ref_folder)
@@ -247,8 +251,12 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   logging.info('[SUCCESS] Finished saving json file')
   if flag:
       logging.info('[SUCCESS] JSON is generated with thumnails for :', dict1[ds[0x0008,0x0016].name])
-      return 1
-  return 0
+      print('[SUCCESS] JSON is generated with thumnails for :', dict1[ds[0x0008,0x0016].name])
+      #print(nested_dict)
+      return 1,nested_dict
+  print('[ERROR] JSON is generated with thumnails for :', dict1[ds[0x0008,0x0016].name])
+  #print(nested_dict)
+  return 0,nested_dict
 
 
 db = sqlite3.connect('pacs.db' , check_same_thread=False)
@@ -265,36 +273,54 @@ def job_scheduler():
 
     if len(li)!=0:
       
-        for i in li:  
-
-            study_folder = i[2]
-            input  = study_folder + '/SR' + f'/{i[1]}'
+        for i in li:
+            loc = [i[0] for i in cursor.execute(f'SELECT FILENAME FROM IMAGES WHERE PATIENTID = "{i[1]}"')]
+            
+            study_folder = '/'.join(i[3].split('/')[:-1])
+            #print('olay:',study_folder)
+            for j in loc:
+                if j.split('/')[-1]=='Thumbnails':
+                  thumbnail_f = j 
+                if j.split('/')[-1]=='CT':
+                  ct_f = j 
+                if j.split('/')[-1]=='SR':
+                  sr_f = j
+      
+            input  = sr_f + f'/{i[2]}'
+            #print('pr',os.path.exists(input), input)
             if os.path.exists(input):
               ds=  pydicom.read_file(input)
-              output = study_folder + '/SR' + f'/{i[1]}.json'
-              flag = ExtractNodulesFromJson(ds,output,False,study_folder+'/Thumbnails',study_folder+'/CT', study_folder)
-              if not(i[3]):
-                
-                with open(input, 'rb') as f:
-                    r = requests.post('http://demo.va-pals.org/dcmin?siteid=PHO&returngraph=1', files={f'{input}': f})
-                #print(r)
+              output = sr_f + f'/{i[2]}.json'
+              
+              
+              flag,js = ExtractNodulesFromJson(ds,output,False,thumbnail_f,ct_f, study_folder)
+              if not(i[-1]):
+                url = 'http://demo.va-pals.org/dcmin?siteid=XXX&returngraph=1'
+                r =json.load(open(f'{input}.json'))
+                res = requests.post(url, json = r)
+                logging.info(f'[SENT] json sent to server and it returns {res} ')
+               
+               
                 cursor.execute(f'UPDATE JOBS SET SENT = {True} where ID = "{i[0]}"')
                 db.commit()
               if flag:
                   cursor.execute(f'DELETE FROM JOBS WHERE id = {i[0]}')
-                  #logging.error('[ERROR] Images not available at moment, Basic JSON is generated')
-                  #print(f'deleted {i[0]}')
-                  with open(input, 'rb') as f:
-                    r = requests.post('http://demo.va-pals.org/dcmin?siteid=PHO&returngraph=1', files={f'{input}': f})
-                 
+                  
+                  
+                  url = 'http://demo.va-pals.org/dcmin?siteid=XXX&returngraph=1'
+                  r =json.load(open(f'{input}.json'))
+                  res = requests.post(url, json = r)
+                  logging.info(f'[SENT] json sent to server and it returns {res} ')
+                
                   db.commit()
     #time.sleep(60)
     
 def main():
     print('server started')
     while(1):
-        time.sleep(3)
+        
         job_scheduler()
+        time.sleep(10)
 
 if __name__ == '__main__':
     main()
