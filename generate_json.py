@@ -37,7 +37,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   nested_dict={}
   dict1={}
   #need all ct slices to convert to json
-  print(dataset_folder,thickness_fr_of_ref_folder,olay_folder,output)
+  #print(dataset_folder,thickness_fr_of_ref_folder,olay_folder,output)
   nii_dir = '/'.join(dataset_folder.split('/')[:-1])
   #json file of SR is read into 
   #ds=  pydicom.dataset.Dataset.from_json(json.load(open(input)))
@@ -66,7 +66,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
     fil=glob.glob(nii_dir+'/'+'*.nii.gz')
   
     #print(os.path.isfile(fil))
-    print('fil',fil, 'args',nii_dir+'/'+'*.nii.gz', os.path.isfile(fil[0]))
+   # print('fil',fil, 'args',nii_dir+'/'+'*.nii.gz', os.path.isfile(fil[0]))
     nii_image=sitk.ReadImage(fil[0])
     #print('done reading')
     #reader = sitk.ImageSeriesReader()
@@ -118,10 +118,10 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
             dict[attr]+=' ('+subdict['0040A043']['Value'][0]['00080100']['Value'][0]+','+subdict['0040A043']['Value'][0]['00080102']['Value'][0]+')'       
 
         elif attr== 'Lesion Epicenter':
-          print('jjasd')
+          #print('jjasd')
           dict[attr]=str(subdict['00700022']['Value'])
           les_center=subdict['00700022']['Value']
-          print('lsc',les_center)
+          #print('lsc',les_center)
           
 	
         elif attr== 'Attenuation Characteristic' or attr=='Radiographic Lesion Margin' or attr=='Lung-RADS assessment' or attr=='Finding' or attr=='Finding site':
@@ -144,28 +144,28 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
       
       dict[dss1[0x0018,0x0060].name]=dss1[0x0018,0x0060].value
       dict[dss1[0x0018,0x1210].name]=dss1[0x0018,0x1210].value
-      print('tt',nii_image.GetOrigin()[2])
-      print('gg',nii_image.GetSpacing()[2])
+      #print('tt',nii_image.GetOrigin()[2])
+      #print('gg',nii_image.GetSpacing()[2])
       sl_num=np.floor((les_center[2]-nii_image.GetOrigin()[2])/nii_image.GetSpacing()[2])
-      print('sl1', sl_num)
+      #print('sl1', sl_num)
       sl_num=sitk.GetArrayFromImage(nii_image).shape[0]-sl_num
-      print('sl2', sl_num)
+      #print('sl2', sl_num)
       dict['slice number of lesion epicenter']=abs(int(sl_num))
       half_num_of_nodule_slices=float(dict['Maximum 2D diameter'])/(2*nii_image.GetSpacing()[2])
       dict['nodule starting slice number']=int(float(dict['slice number of lesion epicenter'])-half_num_of_nodule_slices)
       dict['nodule ending slice number']=int(float(dict['slice number of lesion epicenter'])+half_num_of_nodule_slices)
       
       olay_count=0
-      l = [i for i in dss1]
-      for i in l:
-        if i.name == 'Overlay Data':
-          print(type(i),i)
-          print(str(i)[1:5])
+      # l = [i for i in dss1]
+      # for i in l:
+      #   if i.name == 'Overlay Data':
+      #     print(type(i),i)
+      #     print(str(i)[1:5])
       num = '6000'
       for element in dss1:
         if element.name=='Overlay Data':  
           num=str(element)[1:5]
-          print('num:',num)
+          #print('num:',num)
           hexa=hex(int(num,16))
           #last overlay, you get in the last iteration (just the overlay)
           arr=dss1.overlay_array(int(num,16))
@@ -191,7 +191,7 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
           image_new = np.array(img_bbox)
         #save the contrast enhanced CT slice image
           only_CT=image_new.astype(np.uint8)
-          fpath=str(olay_folder)+"/CT_%d" %c+".jpg"
+          fpath=str(olay_folder)+"/CT_%d" %i+".jpg"
           c+=1
           matplotlib.image.imsave(fpath,only_CT)
           with open(fpath,'rb') as img1:
@@ -216,22 +216,23 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
                 CT_olay_dim[ii,jj,1]=0
                 CT_olay_dim[ii,jj,2]=0      
           
-          fpath=str(olay_folder)+"/CT_olay_dim_%d" %c+".jpg"
+          fpath=str(olay_folder)+"/CT_olay_dim_%d" %i+".jpg"
           c+=1
           matplotlib.image.imsave(fpath,CT_olay_dim)
         
         
     #encode the CT slice image overlayed using base64 and store it in dictionary   
-    with open(fpath,'rb') as img1:
-      f=img1.read()
-      imagedata1 = { "mimeType": "image/jpg",
-                "content": " ",
-                "fileName": "nodule.jpg"
-                 }
-      imagedata1["content"]=base64.b64encode((f)).decode("utf-8")
-    
-    dict['Nodule']=imagedata1
-    nested_dict['nodules'].append(dict)
+          with open(fpath,'rb') as img1:
+            f=img1.read()
+            imagedata1 = { "mimeType": "image/jpg",
+                      "content": " ",
+                      "fileName": "nodule.jpg"
+                      }
+            imagedata1["content"]=base64.b64encode((f)).decode("utf-8")
+        
+          dict['Nodule']=imagedata1
+          nested_dict['nodules'].append(dict)
+          #print('dict',fpath)
 
   except Exception as e:
     traceback.print_exc()
@@ -257,6 +258,8 @@ def ExtractNodulesFromJson(input, output:Path,radlex: bool, dataset_folder,thick
   print('[ERROR] JSON is generated with thumnails for :', dict1[ds[0x0008,0x0016].name])
   #print(nested_dict)
   return 0,nested_dict
+
+
 
 
 db = sqlite3.connect('pacs.db' , check_same_thread=False)
@@ -297,8 +300,8 @@ def job_scheduler():
               if not(i[-1]):
                 url = 'http://demo.va-pals.org/dcmin?siteid=XXX&returngraph=1'
                 r =json.load(open(f'{input}.json'))
-                res = requests.post(url, json = r)
-                logging.info(f'[SENT] json sent to server and it returns {res} ')
+                #res = requests.post(url, json = r)
+                #logging.info(f'[SENT] json sent to server and it returns {res} ')
                
                
                 cursor.execute(f'UPDATE JOBS SET SENT = {True} where ID = "{i[0]}"')
@@ -309,8 +312,8 @@ def job_scheduler():
                   
                   url = 'http://demo.va-pals.org/dcmin?siteid=XXX&returngraph=1'
                   r =json.load(open(f'{input}.json'))
-                  res = requests.post(url, json = r)
-                  logging.info(f'[SENT] json sent to server and it returns {res} ')
+                  #res = requests.post(url, json = r)
+                  #logging.info(f'[SENT] json sent to server and it returns {res} ')
                 
                   db.commit()
     #time.sleep(60)
