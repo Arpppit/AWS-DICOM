@@ -300,8 +300,8 @@ def job_scheduler():
               if not(i[-1]):
                 url = 'http://demo.va-pals.org/dcmin?siteid=XXX&returngraph=1'
                 r =json.load(open(f'{input}.json'))
-                #res = requests.post(url, json = r)
-                #logging.info(f'[SENT] json sent to server and it returns {res} ')
+                res = requests.post(url, json = r)
+                logging.info(f'[SENT] json sent to server and it returns {res} ')
                
                
                 cursor.execute(f'UPDATE JOBS SET SENT = {True} where ID = "{i[0]}"')
@@ -312,8 +312,8 @@ def job_scheduler():
                   
                   url = 'http://demo.va-pals.org/dcmin?siteid=XXX&returngraph=1'
                   r =json.load(open(f'{input}.json'))
-                  #res = requests.post(url, json = r)
-                  #logging.info(f'[SENT] json sent to server and it returns {res} ')
+                  res = requests.post(url, json = r)
+                  logging.info(f'[SENT] json sent to server and it returns {res} ')
                 
                   db.commit()
     #time.sleep(60)
